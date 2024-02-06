@@ -1,57 +1,33 @@
 package com.jwtauthentication.config;
 
-import com.jwtauthentication.security.JwtValidator;
-import jakarta.servlet.http.HttpServletRequest;
+import com.jwtauthentication.security.JWTAuthenticationEntryPoint;
+import com.jwtauthentication.security.JwtAuthFilter;
+import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-
-import java.util.Arrays;
-import java.util.Collections;
-
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 @Configuration
-@EnableWebSecurity
+@AllArgsConstructor
 public class SecurityFilterConfig {
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity security) throws Exception{
-        security.sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(Authorize -> Authorize.requestMatchers("/api/**")
-                        .authenticated().anyRequest().permitAll())
-                .addFilterBefore(new JwtValidator(), BasicAuthenticationFilter.class)
-                .csrf(csrf->csrf.disable())
-                .cors(cors-> cors.configurationSource(corsConfigurationSource()));
-        return security.build();
-    }
-
-    private CorsConfigurationSource corsConfigurationSource() {
-        return new CorsConfigurationSource() {
-            @Override
-            public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
-                CorsConfiguration cfg=new CorsConfiguration();
-                cfg.setAllowedOrigins(Arrays.asList(
-                        "http://localhost:3000/"));
-                cfg.setAllowedMethods(Collections.singletonList("*"));
-                cfg.setAllowedHeaders(Collections.singletonList("*"));
-                cfg.setAllowCredentials(true);
-                cfg.setExposedHeaders(Arrays.asList("Authorization"));
-                cfg.setMaxAge(3600L);
-                return cfg;
-            }
-        };
-    }
+    private JWTAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private JwtAuthFilter jwtAuthFilter;
 
     @Bean
-    PasswordEncoder passwordEncoder(){
-        return new BCryptPasswordEncoder();
+
+    public SecurityFilterChain filterChain(HttpSecurity security) throws Exception {
+        return security.csrf(csrf-> csrf.disable())
+                .cors(cors-> cors.disable())
+                .authorizeHttpRequests(auth->auth.requestMatchers("/authenticate").permitAll()
+                        .anyRequest().authenticated())
+                .exceptionHandling(ex ->ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .build();
 
     }
+
 }
